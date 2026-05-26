@@ -599,6 +599,7 @@ int8_t sleep_mode_init(uint8_t enable, float sleep_volt)
 #include "hw_config.h"
 #include "sdcard.h"
 #include "ble.h"
+#include "autopid.h"
 
 #define ADC_UNIT          ADC_UNIT_1
 #define ADC_CONV_MODE     ADC_CONV_SINGLE_UNIT_1
@@ -910,6 +911,7 @@ void light_sleep_task(void *pvParameters)
     vTaskDelay(pdMS_TO_TICKS(1000));
     while (1) 
 	{
+        bool ldc_a_active = autopid_ldc_a_is_valid();
         // Read voltage every 3 seconds
         if(wc_timer_is_expired(&voltage_read_timer)) 
 		{
@@ -920,7 +922,7 @@ void light_sleep_task(void *pvParameters)
             if(ret == ESP_OK)
             {
                 update_battery_voltage(&battery_voltage);
-                if (battery_voltage < sleep_voltage)
+                if (battery_voltage < sleep_voltage && !ldc_a_active)
                 {
                     dev_status_clear_bits(DEV_WAKE_VOLTAGE_OK_BIT);
                 }
@@ -937,7 +939,7 @@ void light_sleep_task(void *pvParameters)
             switch (current_state) 
 			{
                 case STATE_NORMAL:
-                    if (battery_voltage < sleep_voltage) 
+                    if (battery_voltage < sleep_voltage && !ldc_a_active)
 					{
                         ESP_LOGW(TAG, "Battery voltage low (%.2fV), starting low voltage timer", battery_voltage);
                         current_state = STATE_LOW_VOLTAGE;
@@ -946,7 +948,7 @@ void light_sleep_task(void *pvParameters)
                     break;
 
                 case STATE_LOW_VOLTAGE:
-                    if (battery_voltage >= wakeup_voltage) 
+                    if (battery_voltage >= wakeup_voltage || ldc_a_active)
 					{
                         ESP_LOGI(TAG, "Battery voltage recovered (%.2fV)", battery_voltage);
                         current_state = STATE_NORMAL;

@@ -125,6 +125,20 @@ static cJSON *autopid_add_parameter_number_to_object(cJSON *object,
     return cJSON_AddNumberToObject(object, name, autopid_round_parameter_value((double)value));
 }
 
+static int64_t s_last_ldca_valid_us = -1LL;
+
+static void autopid_pid_update_hook(parameter_t *param, float value)
+{
+    if (param->name && strcmp(param->name, "LDC_A") == 0 && value > 1.0f)
+        s_last_ldca_valid_us = esp_timer_get_time();
+}
+
+bool autopid_ldc_a_is_valid(void)
+{
+    return (s_last_ldca_valid_us >= 0) &&
+           ((esp_timer_get_time() - s_last_ldca_valid_us) < 10000000LL);
+}
+
 static bool autopid_prepare_parameter_value(parameter_t *param,
                                             double raw_value,
                                             float *out_value,
@@ -166,6 +180,7 @@ static bool autopid_prepare_parameter_value(parameter_t *param,
     }
 
     *out_value = (float)rounded_value;
+    autopid_pid_update_hook(param, *out_value);
     return true;
 }
 // strdup_psram
@@ -3806,7 +3821,7 @@ static void autopid_task(void *pvParameters)
         static bool pid_polling_paused_prev = false;
 
         dev_status_wait_for_bits(DEV_AUTOPID_ELM327_APP_BIT, portMAX_DELAY);
-        
+
         if (dev_status_is_sleeping())
         {
             ESP_LOGI(TAG, "Device is sleeping, waiting for wakeup");

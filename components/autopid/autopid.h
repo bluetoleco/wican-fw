@@ -224,6 +224,7 @@ esp_err_t autopid_set_protocol_number(int32_t protocol_value);
 esp_err_t autopid_get_protocol_number(int32_t *protocol_value);
 
 char *autopid_get_value_by_name(char* name);
+bool autopid_ldc_a_is_valid(void);
 void autopid_publish_all_destinations(void);
 void autopid_app_reset_timer(void);
 
